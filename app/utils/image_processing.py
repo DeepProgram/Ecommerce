@@ -1,30 +1,42 @@
 """
 Image processing utilities for product images.
-Enforces 1:1 ratio, 800x800 size, and WebP format.
+Generates multiple sizes with smart cropping (no white padding).
 """
 from PIL import Image
 import io
-from typing import Tuple, Optional
+from typing import Tuple, Optional, Dict
+from dataclasses import dataclass
+
+
+@dataclass
+class ProcessedImage:
+    """Container for processed image data"""
+    bytes: bytes
+    width: int
+    height: int
+    format: str
 
 
 def process_product_image(
     image_bytes: bytes,
-    target_size: Tuple[int, int] = (800, 800),
-    format_preference: str = "WEBP"
-) -> bytes:
+    max_dimension: int = 1200,
+    format_preference: str = "WEBP",
+    preserve_aspect_ratio: bool = True
+) -> ProcessedImage:
     """
-    Process product image to enforce requirements:
-    - 1:1 aspect ratio (square)
-    - Target size (default: 800x800)
+    Process product image preserving aspect ratio (no cropping, no white padding).
+    - Preserves original aspect ratio (portrait stays portrait, landscape stays landscape)
+    - Resizes to fit within max_dimension (longest side)
     - WebP format (with JPEG fallback)
     
     Args:
         image_bytes: Raw image bytes from upload
-        target_size: Target dimensions as (width, height) tuple. Default: (800, 800)
+        max_dimension: Maximum dimension (width or height). Default: 1200px
         format_preference: Preferred format. Default: "WEBP"
+        preserve_aspect_ratio: If True, preserves aspect ratio. Default: True
     
     Returns:
-        Processed image bytes in WebP format (or JPEG if WebP fails)
+        ProcessedImage object with bytes, dimensions, and format
     
     Raises:
         ValueError: If image cannot be opened or processed
@@ -47,31 +59,49 @@ def process_product_image(
         # Get current dimensions
         width, height = image.size
         
-        # Calculate the size for 1:1 ratio (use the larger dimension)
-        size_for_square = max(width, height)
+        # Calculate new dimensions preserving aspect ratio
+        if preserve_aspect_ratio:
+            # Resize to fit within max_dimension while preserving aspect ratio
+            if width > height:
+                # Landscape or square: fit to width
+                if width > max_dimension:
+                    new_width = max_dimension
+                    new_height = int(height * (max_dimension / width))
+                else:
+                    new_width = width
+                    new_height = height
+            else:
+                # Portrait: fit to height
+                if height > max_dimension:
+                    new_height = max_dimension
+                    new_width = int(width * (max_dimension / height))
+                else:
+                    new_width = width
+                    new_height = height
+        else:
+            # Don't preserve (shouldn't happen, but fallback)
+            new_width = min(width, max_dimension)
+            new_height = min(height, max_dimension)
         
-        # Create a square image with white background
-        square_image = Image.new("RGB", (size_for_square, size_for_square), (255, 255, 255))
-        
-        # Calculate position to center the original image
-        paste_x = (size_for_square - width) // 2
-        paste_y = (size_for_square - height) // 2
-        
-        # Paste the original image centered on the square canvas
-        square_image.paste(image, (paste_x, paste_y))
-        
-        # Resize to target size (maintains 1:1 ratio)
-        resized_image = square_image.resize(target_size, Image.Resampling.LANCZOS)
+        # Resize image (maintains aspect ratio, no distortion, no cropping)
+        resized_image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
         
         # Convert to bytes in preferred format
         output = io.BytesIO()
+        image_format = "JPEG"
         
         try:
             # Try WebP first
             if format_preference.upper() == "WEBP":
                 resized_image.save(output, format="WEBP", quality=85, method=6)
+                image_format = "WEBP"
                 output.seek(0)
-                return output.getvalue()
+                return ProcessedImage(
+                    bytes=output.getvalue(),
+                    width=new_width,
+                    height=new_height,
+                    format=image_format
+                )
         except Exception:
             # Fallback to JPEG if WebP fails
             pass
@@ -80,10 +110,74 @@ def process_product_image(
         output = io.BytesIO()
         resized_image.save(output, format="JPEG", quality=85, optimize=True)
         output.seek(0)
-        return output.getvalue()
+        return ProcessedImage(
+            bytes=output.getvalue(),
+            width=new_width,
+            height=new_height,
+            format="JPEG"
+        )
         
     except Exception as e:
         raise ValueError(f"Failed to process image: {str(e)}")
+
+
+def process_product_image_multiple_sizes(
+    image_bytes: bytes,
+    format_preference: str = "WEBP"
+) -> Dict[str, ProcessedImage]:
+    """
+    Process product image and generate multiple sizes (thumbnail, medium, large).
+    Preserves aspect ratio for all sizes. Follows e-commerce best practices.
+    
+    Args:
+        image_bytes: Raw image bytes from upload
+        format_preference: Preferred format. Default: "WEBP"
+    
+    Returns:
+        Dictionary with keys: 'thumbnail', 'medium', 'large'
+        Each value is a ProcessedImage object with preserved aspect ratio
+    """
+    max_dimensions = {
+        "thumbnail": 200,
+        "medium": 600,
+        "large": 1200
+    }
+    
+    results = {}
+    for size_name, max_dim in max_dimensions.items():
+        results[size_name] = process_product_image(
+            image_bytes,
+            max_dimension=max_dim,
+            format_preference=format_preference,
+            preserve_aspect_ratio=True
+        )
+    
+    return results
+
+
+def process_single_size(
+    image_bytes: bytes,
+    max_dimension: int = 1200,
+    format_preference: str = "WEBP"
+) -> ProcessedImage:
+    """
+    Process image to a single size (convenience function).
+    Preserves aspect ratio.
+    
+    Args:
+        image_bytes: Raw image bytes from upload
+        max_dimension: Maximum dimension (width or height). Default: 1200px
+        format_preference: Preferred format. Default: "WEBP"
+    
+    Returns:
+        ProcessedImage object
+    """
+    return process_product_image(
+        image_bytes,
+        max_dimension=max_dimension,
+        format_preference=format_preference,
+        preserve_aspect_ratio=True
+    )
 
 
 def validate_image_file(image_bytes: bytes, max_size_mb: float = 10.0) -> bool:

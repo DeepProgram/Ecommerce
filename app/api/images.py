@@ -4,9 +4,15 @@ from typing import Optional
 from app.core.database import get_db
 from app.models.product import Product
 from app.models.image import ProductImage
-from app.schemas.image import ImageResponse
+from app.schemas.image import ImageResponse, ImageWithSizesResponse, ImageSizes
 from app.utils.image_processing import process_product_image, validate_image_file
-from app.utils.cloudinary_utils import upload_image_to_cloudinary, delete_from_cloudinary, extract_cloudinary_public_id
+from app.utils.cloudinary_utils import (
+    upload_image_to_cloudinary, 
+    delete_from_cloudinary, 
+    extract_cloudinary_public_id,
+    get_image_sizes
+)
+from typing import List
 from app.services.elasticsearch_service import index_product
 import io
 
@@ -23,7 +29,8 @@ async def upload_product_image(
     """
     Upload and process a product image.
     - Validates the image file
-    - Processes to 1:1 ratio, 800x800, WebP format
+    - Processes preserving aspect ratio (no cropping, no white padding), max 1200px, WebP format
+    - Portrait images stay portrait, landscape stays landscape
     - Uploads to Cloudinary
     - Creates ProductImage record
     - Sets as main image if it's the first image for the product
@@ -59,9 +66,14 @@ async def upload_product_image(
             detail=str(e)
         )
     
-    # Process image (1:1 ratio, 800x800, WebP)
+    # Process image (preserves aspect ratio, max 1200px, WebP - no cropping, no white padding)
     try:
-        processed_image_bytes = process_product_image(image_bytes)
+        processed_image = process_product_image(
+            image_bytes,
+            max_dimension=1200,
+            format_preference="WEBP",
+            preserve_aspect_ratio=True
+        )
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -69,10 +81,11 @@ async def upload_product_image(
         )
     
     # Upload to Cloudinary
+    # Cloudinary can generate multiple sizes via transformations, so we upload the large size
     try:
         public_id = f"products/{product_id}/{file.filename or 'image'}"
         cloudinary_result = upload_image_to_cloudinary(
-            processed_image_bytes,
+            processed_image.bytes,
             public_id=public_id,
             folder="products"
         )
@@ -249,4 +262,103 @@ async def set_main_image(
     await index_product(product_id, db)
     
     return image
+
+
+@router.get("/{product_id}/images", response_model=List[ImageWithSizesResponse])
+async def get_product_images(
+    product_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Get all images for a product with multiple sizes (thumbnail, medium, large, original).
+    Uses Cloudinary transformations to generate different sizes on-demand.
+    """
+    # Verify product exists
+    product = db.query(Product).filter(
+        Product.id == product_id,
+        Product.is_deleted == False
+    ).first()
+    
+    if not product:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Product with id {product_id} not found"
+        )
+    
+    # Get all non-deleted images for the product
+    images = db.query(ProductImage).filter(
+        ProductImage.product_id == product_id,
+        ProductImage.is_deleted == False
+    ).order_by(ProductImage.order).all()
+    
+    # Build response with sizes
+    result = []
+    for image in images:
+        sizes_dict = get_image_sizes(image.url)
+        result.append(ImageWithSizesResponse(
+            id=image.id,
+            product_id=image.product_id,
+            url=image.url,
+            sizes=ImageSizes(**sizes_dict),
+            alt_text=image.alt_text,
+            order=image.order,
+            is_main=image.is_main,
+            is_deleted=image.is_deleted,
+            created_at=image.created_at,
+            updated_at=image.updated_at
+        ))
+    
+    return result
+
+
+@router.get("/{product_id}/images/{image_id}", response_model=ImageWithSizesResponse)
+async def get_product_image(
+    product_id: int,
+    image_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Get a specific product image with multiple sizes (thumbnail, medium, large, original).
+    Uses Cloudinary transformations to generate different sizes on-demand.
+    """
+    # Verify product exists
+    product = db.query(Product).filter(
+        Product.id == product_id,
+        Product.is_deleted == False
+    ).first()
+    
+    if not product:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Product with id {product_id} not found"
+        )
+    
+    # Get image
+    image = db.query(ProductImage).filter(
+        ProductImage.id == image_id,
+        ProductImage.product_id == product_id,
+        ProductImage.is_deleted == False
+    ).first()
+    
+    if not image:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Image with id {image_id} not found for product {product_id}"
+        )
+    
+    # Get sizes using Cloudinary transformations
+    sizes_dict = get_image_sizes(image.url)
+    
+    return ImageWithSizesResponse(
+        id=image.id,
+        product_id=image.product_id,
+        url=image.url,
+        sizes=ImageSizes(**sizes_dict),
+        alt_text=image.alt_text,
+        order=image.order,
+        is_main=image.is_main,
+        is_deleted=image.is_deleted,
+        created_at=image.created_at,
+        updated_at=image.updated_at
+    )
 

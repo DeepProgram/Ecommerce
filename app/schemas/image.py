@@ -36,3 +36,27 @@ class ImageResponse(ImageBase):
     class Config:
         from_attributes = True
 
+
+class ImageSizes(BaseModel):
+    """Schema for image URLs in different sizes"""
+    thumbnail: str = Field(..., description="Thumbnail size (200px width)")
+    medium: str = Field(..., description="Medium size (600px width)")
+    large: str = Field(..., description="Large size (1200px width)")
+    original: str = Field(..., description="Original image URL")
+
+
+class ImageWithSizesResponse(BaseModel):
+    """Schema for image response with multiple sizes"""
+    id: int
+    product_id: int
+    url: str = Field(..., description="Original Cloudinary image URL")
+    sizes: ImageSizes = Field(..., description="Image URLs in different sizes")
+    alt_text: Optional[str] = None
+    order: int
+    is_main: bool
+    is_deleted: bool
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True

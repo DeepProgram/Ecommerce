@@ -1,5 +1,22 @@
 """
-Cloudinary utility functions for uploading images and videos
+Cloudinary utility functions for uploading images and videos.
+
+Image Size Strategy:
+- Upload one large image (max 1200px) to Cloudinary
+- Use URL transformations to generate different sizes on-demand
+- No need to store multiple versions - Cloudinary generates them automatically
+
+Example Usage:
+    from app.utils.cloudinary_utils import get_image_sizes, get_image_url_with_transformation
+    
+    # Get all common sizes
+    sizes = get_image_sizes(image_url)
+    thumbnail = sizes['thumbnail']  # 200px width
+    medium = sizes['medium']        # 600px width
+    large = sizes['large']          # 1200px width
+    
+    # Or generate custom size
+    custom = get_image_url_with_transformation(image_url, width=400, height=400, crop="fill")
 """
 import cloudinary
 import cloudinary.uploader
@@ -17,7 +34,7 @@ def upload_image_to_cloudinary(
     Upload processed image bytes to Cloudinary.
     
     Args:
-        image_bytes: Processed image bytes (should be WebP format, 800x800, 1:1 ratio)
+        image_bytes: Processed image bytes (should be WebP/JPEG format, smart cropped, no white padding)
         public_id: Optional public ID for the image. If not provided, Cloudinary generates one.
         folder: Folder path in Cloudinary (default: "products")
         **kwargs: Additional Cloudinary upload options
@@ -195,3 +212,109 @@ def extract_cloudinary_public_id(url: str) -> Optional[str]:
     except Exception:
         return None
 
+
+def get_image_url_with_transformation(
+    original_url: str,
+    width: Optional[int] = None,
+    height: Optional[int] = None,
+    crop: str = "limit",
+    quality: str = "auto",
+    format: Optional[str] = None
+) -> str:
+    """
+    Generate a Cloudinary URL with transformations for on-demand image resizing.
+    This allows you to request different sizes without storing multiple versions.
+    
+    Args:
+        original_url: Original Cloudinary URL
+        width: Target width in pixels (optional)
+        height: Target height in pixels (optional)
+        crop: Crop mode - "limit" (default, preserves aspect ratio), 
+              "fill", "fit", "scale", "crop", "thumb"
+        quality: Image quality - "auto" (default), "best", "good", "eco", "low"
+        format: Output format - None (keeps original), "webp", "jpg", "png", etc.
+    
+    Returns:
+        Transformed Cloudinary URL
+    
+    Examples:
+        # Thumbnail (200px width, auto height, preserves aspect ratio)
+        thumbnail_url = get_image_url_with_transformation(url, width=200)
+        
+        # Medium size (600px width)
+        medium_url = get_image_url_with_transformation(url, width=600)
+        
+        # Square thumbnail (200x200, cropped)
+        square_thumb = get_image_url_with_transformation(url, width=200, height=200, crop="fill")
+    """
+    try:
+        # Cloudinary URL format:
+        # https://res.cloudinary.com/{cloud_name}/image/upload/{version}/{public_id}.{format}
+        # With transformations:
+        # https://res.cloudinary.com/{cloud_name}/image/upload/{transformations}/{version}/{public_id}.{format}
+        
+        if "/image/upload/" not in original_url:
+            # Not a Cloudinary URL, return as-is
+            return original_url
+        
+        # Split URL to insert transformations
+        parts = original_url.split("/image/upload/")
+        if len(parts) != 2:
+            return original_url
+        
+        base_url = parts[0]
+        rest = parts[1]
+        
+        # Build transformation string
+        transformations = []
+        if width:
+            transformations.append(f"w_{width}")
+        if height:
+            transformations.append(f"h_{height}")
+        if crop:
+            transformations.append(f"c_{crop}")
+        if quality:
+            transformations.append(f"q_{quality}")
+        if format:
+            transformations.append(f"f_{format}")
+        
+        # If no transformations, return original
+        if not transformations:
+            return original_url
+        
+        transformation_str = ",".join(transformations)
+        
+        # Insert transformation before the version/public_id
+        # Format: /image/upload/{transformations}/{rest}
+        new_url = f"{base_url}/image/upload/{transformation_str}/{rest}"
+        
+        return new_url
+    except Exception:
+        # If transformation fails, return original URL
+        return original_url
+
+
+def get_image_sizes(url: str) -> dict:
+    """
+    Generate URLs for common image sizes using Cloudinary transformations.
+    Returns a dictionary with thumbnail, medium, and large URLs.
+    
+    Args:
+        url: Original Cloudinary image URL
+    
+    Returns:
+        Dictionary with keys: 'thumbnail', 'medium', 'large', 'original'
+        Each contains the transformed URL
+    
+    Usage:
+        sizes = get_image_sizes(image_url)
+        # Use sizes['thumbnail'] for product listings
+        # Use sizes['medium'] for product detail pages
+        # Use sizes['large'] for zoom/lightbox
+    """
+    return {
+        "thumbnail": get_image_url_with_transformation(url, width=200, crop="limit", quality="auto"),
+        "medium": get_image_url_with_transformation(url, width=600, crop="limit", quality="auto"),
+        "large": get_image_url_with_transformation(url, width=1200, crop="limit", quality="auto"),
+        "original": url
+    }

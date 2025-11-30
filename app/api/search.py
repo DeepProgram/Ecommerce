@@ -3,6 +3,8 @@ from typing import Optional, List
 from decimal import Decimal
 from app.core.elasticsearch import get_es_client, PRODUCTS_INDEX
 from app.schemas.search import SearchResponse, SearchProduct, Aggregations, AggregationBucket
+from app.utils.cloudinary_utils import get_image_url_with_transformation
+from typing import Literal
 import logging
 
 logger = logging.getLogger(__name__)
@@ -163,10 +165,20 @@ async def search_products(
     max_price: Optional[Decimal] = Query(None, ge=0, description="Maximum price"),
     in_stock_only: bool = Query(False, description="Filter to only in-stock items"),
     page: int = Query(1, ge=1, description="Page number"),
-    page_size: int = Query(10, ge=1, le=100, description="Items per page")
+    page_size: int = Query(10, ge=1, le=100, description="Items per page"),
+    image_size: Literal["thumbnail", "medium", "large", "original"] = Query(
+        "thumbnail", 
+        description="Image size to return: thumbnail (200px) for listings, medium (600px) for detail, large (1200px) for zoom, original for full quality"
+    )
 ):
     """
     Search products with full-text search, filters, and aggregations.
+    
+    Image sizes:
+    - thumbnail (200px): Best for product listings/grids (default)
+    - medium (600px): Good for product detail pages
+    - large (1200px): For zoom/lightbox views
+    - original: Full quality image
     """
     try:
         client = await get_es_client()
@@ -220,13 +232,30 @@ async def search_products(
             min_price_val = Decimal(str(min(prices))) if prices else None
             max_price_val = Decimal(str(max(prices))) if prices else None
             
+            # Transform main_image URL based on requested size
+            main_image_url = source.get("main_image")
+            if main_image_url:
+                if image_size == "thumbnail":
+                    main_image_url = get_image_url_with_transformation(
+                        main_image_url, width=200, crop="limit", quality="auto"
+                    )
+                elif image_size == "medium":
+                    main_image_url = get_image_url_with_transformation(
+                        main_image_url, width=600, crop="limit", quality="auto"
+                    )
+                elif image_size == "large":
+                    main_image_url = get_image_url_with_transformation(
+                        main_image_url, width=1200, crop="limit", quality="auto"
+                    )
+                # else: "original" - use as-is
+            
             product = SearchProduct(
                 id=source.get("id"),
                 title=source.get("title", ""),
                 description=source.get("description"),
                 brand=source.get("brand"),
                 category=source.get("category"),
-                main_image=source.get("main_image"),
+                main_image=main_image_url,
                 main_video=source.get("main_video"),
                 min_price=min_price_val,
                 max_price=max_price_val,

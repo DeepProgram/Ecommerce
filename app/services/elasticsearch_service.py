@@ -8,6 +8,7 @@ from app.models.product import Product
 from app.models.variant import ProductVariant
 from app.models.image import ProductImage
 from app.models.video import ProductVideo
+from app.utils.cloudinary_utils import get_image_url_with_transformation
 import logging
 
 logger = logging.getLogger(__name__)
@@ -50,7 +51,7 @@ async def build_product_document(product: Product) -> dict:
         for img in images
     ]
     
-    # Get main image URL
+    # Get main image URL (store original - will be transformed when needed)
     main_image = None
     main_image_obj = product.images.filter(
         ProductImage.is_deleted == False,
