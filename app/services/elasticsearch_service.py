@@ -8,6 +8,7 @@ from app.models.product import Product
 from app.models.variant import ProductVariant
 from app.models.image import ProductImage
 from app.models.video import ProductVideo
+from app.models.variant_attribute import VariantAttribute
 import logging
 
 logger = logging.getLogger(__name__)
@@ -23,19 +24,25 @@ async def build_product_document(product: Product) -> dict:
     Returns:
         Dictionary representing the product document for Elasticsearch
     """
-    # Get variants (non-deleted)
+    # Get variants (non-deleted) with their dynamic attributes
     variants = product.variants.filter(ProductVariant.is_deleted == False).all()
-    variant_data = [
-        {
+    variant_data = []
+    for v in variants:
+        variant_dict = {
             "id": v.id,
-            "size": v.size,
-            "color": v.color,
             "sku": v.sku,
             "price": float(v.price) if v.price else None,
-            "stock": v.stock
+            "stock": v.stock,
+            "attributes": {}  # Dynamic attributes as {attribute_type_name: value}
         }
-        for v in variants
-    ]
+        
+        # Load dynamic attributes
+        attributes = v.attributes.filter(VariantAttribute.is_deleted == False).all()
+        for attr in attributes:
+            if attr.attribute_type and attr.attribute_type.is_active:
+                variant_dict["attributes"][attr.attribute_type.name] = attr.value
+        
+        variant_data.append(variant_dict)
     
     # Get images (non-deleted, ordered)
     images = product.images.filter(ProductImage.is_deleted == False).order_by(ProductImage.order).all()

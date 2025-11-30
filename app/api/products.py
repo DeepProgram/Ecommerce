@@ -5,6 +5,8 @@ from typing import List
 from app.core.database import get_db
 from app.models.product import Product
 from app.models.variant import ProductVariant
+from app.models.variant_attribute import VariantAttribute
+from app.models.variant_attribute_type import VariantAttributeType
 from app.schemas.product import (
     ProductCreate,
     ProductUpdate,
@@ -12,6 +14,7 @@ from app.schemas.product import (
     ProductListResponse
 )
 from app.schemas.variant import VariantCreateBatch, VariantResponse
+from app.schemas.variant_attribute import VariantAttributeResponse
 from app.services.elasticsearch_service import index_product, delete_product_from_index
 
 router = APIRouter(prefix="/products", tags=["products"])
@@ -206,27 +209,93 @@ async def create_variants(
     
     # Create variants
     created_variants = []
-    for variant in variant_data.variants:
+    for variant_data_item in variant_data.variants:
         new_variant = ProductVariant(
             product_id=product_id,
-            size=variant.size,
-            color=variant.color,
-            sku=variant.sku,
-            price=variant.price,
-            stock=variant.stock,
+            sku=variant_data_item.sku,
+            price=variant_data_item.price,
+            stock=variant_data_item.stock,
             is_deleted=False
         )
         db.add(new_variant)
+        db.flush()  # Flush to get the variant ID
+        
+        # Create dynamic attributes if provided
+        if variant_data_item.attributes:
+            for attribute_type_id, value in variant_data_item.attributes.items():
+                # Verify attribute type exists
+                attr_type = db.query(VariantAttributeType).filter(
+                    VariantAttributeType.id == attribute_type_id,
+                    VariantAttributeType.is_deleted == False,
+                    VariantAttributeType.is_active == True
+                ).first()
+                
+                if not attr_type:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Attribute type with id {attribute_type_id} not found or inactive"
+                    )
+                
+                # Create or update attribute
+                existing_attr = db.query(VariantAttribute).filter(
+                    VariantAttribute.variant_id == new_variant.id,
+                    VariantAttribute.attribute_type_id == attribute_type_id,
+                    VariantAttribute.is_deleted == False
+                ).first()
+                
+                if existing_attr:
+                    existing_attr.value = str(value)
+                else:
+                    attr = VariantAttribute(
+                        variant_id=new_variant.id,
+                        attribute_type_id=attribute_type_id,
+                        value=str(value),
+                        is_deleted=False
+                    )
+                    db.add(attr)
+        
         created_variants.append(new_variant)
     
     db.commit()
     
-    # Refresh all created variants
+    # Refresh all created variants and load attributes
+    result_variants = []
     for variant in created_variants:
         db.refresh(variant)
+        # Build response with attributes
+        variant_dict = {
+            "id": variant.id,
+            "product_id": variant.product_id,
+            "sku": variant.sku,
+            "price": variant.price,
+            "stock": variant.stock,
+            "is_deleted": variant.is_deleted,
+            "created_at": variant.created_at,
+            "updated_at": variant.updated_at,
+            "attributes": {},
+            "attribute_objects": []
+        }
+        
+        # Load attributes
+        attributes = variant.attributes.filter(VariantAttribute.is_deleted == False).all()
+        for attr in attributes:
+            variant_dict["attributes"][attr.attribute_type_id] = attr.value
+            variant_dict["attribute_objects"].append(VariantAttributeResponse(
+                id=attr.id,
+                variant_id=attr.variant_id,
+                attribute_type_id=attr.attribute_type_id,
+                value=attr.value,
+                is_deleted=attr.is_deleted,
+                created_at=attr.created_at,
+                updated_at=attr.updated_at,
+                attribute_type_name=attr.attribute_type.name if attr.attribute_type else None,
+                attribute_type_display_name=attr.attribute_type.display_name if attr.attribute_type else None
+            ))
+        
+        result_variants.append(VariantResponse(**variant_dict))
     
     # Re-index product in Elasticsearch (variants changed)
     await index_product(product_id, db)
     
-    return created_variants
+    return result_variants
 

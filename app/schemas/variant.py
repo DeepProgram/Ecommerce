@@ -1,16 +1,17 @@
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Optional, List, Dict
 from decimal import Decimal
 from datetime import datetime
+from app.schemas.variant_attribute import VariantAttributeResponse
 
 
 class VariantBase(BaseModel):
     """Base variant schema"""
-    size: Optional[str] = Field(None, max_length=50, description="Variant size")
-    color: Optional[str] = Field(None, max_length=50, description="Variant color")
     sku: Optional[str] = Field(None, max_length=100, description="Stock Keeping Unit")
     price: Decimal = Field(..., ge=0, description="Variant price")
     stock: int = Field(0, ge=0, description="Stock quantity")
+    # Dynamic attributes: dict of attribute_type_id -> value
+    attributes: Optional[Dict[int, str]] = Field(None, description="Dynamic attributes as {attribute_type_id: value}")
 
 
 class VariantCreate(VariantBase):
@@ -20,11 +21,10 @@ class VariantCreate(VariantBase):
 
 class VariantUpdate(BaseModel):
     """Schema for updating a variant"""
-    size: Optional[str] = Field(None, max_length=50)
-    color: Optional[str] = Field(None, max_length=50)
     sku: Optional[str] = Field(None, max_length=100)
     price: Optional[Decimal] = Field(None, ge=0)
     stock: Optional[int] = Field(None, ge=0)
+    attributes: Optional[Dict[int, str]] = Field(None, description="Dynamic attributes as {attribute_type_id: value}")
 
 
 class VariantStockUpdate(BaseModel):
@@ -39,6 +39,8 @@ class VariantResponse(VariantBase):
     is_deleted: bool
     created_at: datetime
     updated_at: datetime
+    # Include full attribute objects with type info
+    attribute_objects: Optional[List[VariantAttributeResponse]] = Field(None, description="Full attribute objects with type information")
 
     class Config:
         from_attributes = True

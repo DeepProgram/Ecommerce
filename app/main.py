@@ -11,6 +11,7 @@ from app.api.videos import router as videos_router
 from app.api.search import router as search_router
 from app.api.autocomplete import router as autocomplete_router
 from app.api.reindex import router as reindex_router
+from app.api.variant_attribute_types import router as variant_attribute_types_router
 
 # Configure Cloudinary
 cloudinary.config(
@@ -43,6 +44,7 @@ app.include_router(videos_router)
 app.include_router(search_router)
 app.include_router(autocomplete_router)
 app.include_router(reindex_router)
+app.include_router(variant_attribute_types_router)
 
 
 @app.on_event("startup")

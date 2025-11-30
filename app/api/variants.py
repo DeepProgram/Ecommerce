@@ -2,11 +2,14 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.variant import ProductVariant
+from app.models.variant_attribute import VariantAttribute
+from app.models.variant_attribute_type import VariantAttributeType
 from app.schemas.variant import (
     VariantUpdate,
     VariantStockUpdate,
     VariantResponse
 )
+from app.schemas.variant_attribute import VariantAttributeResponse
 from app.services.elasticsearch_service import index_product
 
 router = APIRouter(prefix="/variants", tags=["variants"])
@@ -45,18 +48,78 @@ async def update_variant(
                 detail=f"SKU '{variant_data.sku}' already exists"
             )
     
-    # Update only provided fields
-    update_data = variant_data.model_dump(exclude_unset=True)
+    # Update only provided fields (excluding attributes)
+    update_data = variant_data.model_dump(exclude_unset=True, exclude={"attributes"})
     for field, value in update_data.items():
         setattr(variant, field, value)
+    
+    # Handle dynamic attributes if provided
+    if variant_data.attributes is not None:
+        # Delete existing attributes (soft delete)
+        existing_attrs = variant.attributes.filter(VariantAttribute.is_deleted == False).all()
+        for attr in existing_attrs:
+            attr.is_deleted = True
+        
+        # Create new attributes
+        for attribute_type_id, value in variant_data.attributes.items():
+            # Verify attribute type exists
+            attr_type = db.query(VariantAttributeType).filter(
+                VariantAttributeType.id == attribute_type_id,
+                VariantAttributeType.is_deleted == False,
+                VariantAttributeType.is_active == True
+            ).first()
+            
+            if not attr_type:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Attribute type with id {attribute_type_id} not found or inactive"
+                )
+            
+            attr = VariantAttribute(
+                variant_id=variant.id,
+                attribute_type_id=attribute_type_id,
+                value=str(value),
+                is_deleted=False
+            )
+            db.add(attr)
     
     db.commit()
     db.refresh(variant)
     
+    # Build response with attributes
+    variant_dict = {
+        "id": variant.id,
+        "product_id": variant.product_id,
+        "sku": variant.sku,
+        "price": variant.price,
+        "stock": variant.stock,
+        "is_deleted": variant.is_deleted,
+        "created_at": variant.created_at,
+        "updated_at": variant.updated_at,
+        "attributes": {},
+        "attribute_objects": []
+    }
+    
+    # Load attributes
+    attributes = variant.attributes.filter(VariantAttribute.is_deleted == False).all()
+    for attr in attributes:
+        variant_dict["attributes"][attr.attribute_type_id] = attr.value
+        variant_dict["attribute_objects"].append(VariantAttributeResponse(
+            id=attr.id,
+            variant_id=attr.variant_id,
+            attribute_type_id=attr.attribute_type_id,
+            value=attr.value,
+            is_deleted=attr.is_deleted,
+            created_at=attr.created_at,
+            updated_at=attr.updated_at,
+            attribute_type_name=attr.attribute_type.name if attr.attribute_type else None,
+            attribute_type_display_name=attr.attribute_type.display_name if attr.attribute_type else None
+        ))
+    
     # Re-index product in Elasticsearch (variant changed)
     await index_product(variant.product_id, db)
     
-    return variant
+    return VariantResponse(**variant_dict)
 
 
 @router.patch("/{variant_id}/stock", response_model=VariantResponse)

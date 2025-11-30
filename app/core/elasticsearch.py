@@ -73,11 +73,13 @@ async def create_index_if_not_exists():
                     "type": "nested",
                     "properties": {
                         "id": {"type": "integer"},
-                        "size": {"type": "keyword"},
-                        "color": {"type": "keyword"},
                         "sku": {"type": "keyword"},
                         "price": {"type": "float"},
-                        "stock": {"type": "integer"}
+                        "stock": {"type": "integer"},
+                        "attributes": {
+                            "type": "object",
+                            "dynamic": True
+                        }
                     }
                 },
                 "images": {

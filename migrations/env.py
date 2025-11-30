@@ -12,7 +12,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from app.core.database import Base
 from app.core.config import settings
 # Import all models so Alembic can detect them
-from app.models import Product, ProductVariant, ProductImage, ProductVideo
+from app.models import (
+    Product, ProductVariant, ProductImage, ProductVideo,
+    VariantAttributeType, VariantAttribute
+)
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
