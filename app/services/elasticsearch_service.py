@@ -109,6 +109,7 @@ async def build_product_document(product: Product) -> dict:
 async def index_product(product_id: int, db: Session) -> bool:
     """
     Index a product in Elasticsearch.
+    Only indexes products with status 'published'.
     
     Args:
         product_id: Product ID to index
@@ -118,14 +119,15 @@ async def index_product(product_id: int, db: Session) -> bool:
         True if successful, False otherwise
     """
     try:
-        # Get product with relationships
+        # Get product with relationships (must be published and not deleted)
         product = db.query(Product).filter(
             Product.id == product_id,
-            Product.is_deleted == False
+            Product.is_deleted == False,
+            Product.status == 'published'
         ).first()
         
         if not product:
-            logger.warning(f"Product {product_id} not found or deleted, skipping indexing")
+            logger.warning(f"Product {product_id} not found, deleted, or not published - skipping indexing")
             return False
         
         # Build document
@@ -207,6 +209,7 @@ async def delete_index() -> bool:
 async def reindex_all_products(db: Session, delete_existing: bool = False) -> int:
     """
     Reindex all products in Elasticsearch.
+    Only indexes published products.
     Useful for initial setup or after schema changes.
     
     Args:
@@ -223,7 +226,10 @@ async def reindex_all_products(db: Session, delete_existing: bool = False) -> in
         from app.core.elasticsearch import create_index_if_not_exists
         await create_index_if_not_exists()
     
-    products = db.query(Product).filter(Product.is_deleted == False).all()
+    products = db.query(Product).filter(
+        Product.is_deleted == False,
+        Product.status == 'published'
+    ).all()
     
     indexed_count = 0
     for product in products:

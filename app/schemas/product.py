@@ -1,6 +1,9 @@
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
+from decimal import Decimal
+from app.schemas.variant import VariantCreate, VariantResponse
+from app.schemas.image import ImageWithSizesResponse
 
 
 class ProductBase(BaseModel):
@@ -12,8 +15,8 @@ class ProductBase(BaseModel):
 
 
 class ProductCreate(ProductBase):
-    """Schema for creating a product"""
-    pass
+    """Schema for creating a product with variants and image"""
+    variants: List[VariantCreate] = Field(..., min_length=1, description="At least one variant is required")
 
 
 class ProductUpdate(BaseModel):
@@ -24,10 +27,20 @@ class ProductUpdate(BaseModel):
     description: Optional[str] = None
 
 
+class ProductStatusUpdate(BaseModel):
+    """Schema for updating product status"""
+    status: str = Field(..., description="Product status: 'published' or 'archived'")
+
+
 class ProductResponse(ProductBase):
     """Schema for product response"""
     id: int
     is_deleted: bool
+    status: str = Field(..., description="Product status: published or archived")
+    thumbnail_url: Optional[str] = Field(None, description="Thumbnail image URL (200px width)")
+    min_price: Optional[Decimal] = Field(None, description="Minimum price across all variants")
+    images: List[ImageWithSizesResponse] = Field(default_factory=list, description="Product images with sizes (main image first)")
+    variants: List[VariantResponse] = Field(default_factory=list, description="Product variants")
     created_at: datetime
     updated_at: datetime
 

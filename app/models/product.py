@@ -11,6 +11,7 @@ class Product(BaseModel):
     brand = Column(String(100), nullable=True, index=True)
     category = Column(String(100), nullable=True, index=True)
     description = Column(Text, nullable=True)
+    status = Column(String(20), nullable=False, default='published', index=True, server_default='published')
 
     # Relationships
     variants = relationship(
