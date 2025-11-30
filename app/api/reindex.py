@@ -33,7 +33,7 @@ async def reindex_products(
         logger.info("Starting full reindex of all products")
         
         # Reindex all products (delete_existing=True will delete index first)
-        indexed_count = await reindex_all_products(db)
+        indexed_count = await reindex_all_products(db, delete_existing=True)
         
         return ReindexResponse(
             message=f"Successfully reindexed {indexed_count} products",

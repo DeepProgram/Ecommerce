@@ -9,4 +9,4 @@ elasticsearch[async]==8.11.0
 python-dotenv==1.0.0
 pillow==10.1.0
 cloudinary==1.37.0
-
+python-multipart==0.0.20

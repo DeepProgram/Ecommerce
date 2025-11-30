@@ -56,7 +56,12 @@ async def create_index_if_not_exists():
                         "keyword": {"type": "keyword"}
                     }
                 },
-                "description": {"type": "text"},
+                "description": {
+                    "type": "text",
+                    "fields": {
+                        "keyword": {"type": "keyword", "ignore_above": 256}
+                    }
+                },
                 "brand": {
                     "type": "keyword",
                     "fields": {
