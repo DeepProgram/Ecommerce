@@ -114,22 +114,24 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
   return (
     <div className="min-h-screen bg-white">
       {/* Breadcrumb */}
-      <div className="hidden md:block bg-white border-b border-gray-200">
-        <div className="max-w-[1280px] mx-auto px-16 md:px-24 py-12">
-          <div className="flex items-center gap-8 text-[13px] text-gray-500">
-            <Link href="/" className="hover:text-brand-600">Home</Link>
-            <span>›</span>
-            <Link href="/products" className="hover:text-brand-600">Products</Link>
-            {product.category && (
-              <>
-                <span>›</span>
-                <Link href={`/products?category=${product.category.slug}`} className="hover:text-brand-600">
-                  {product.category.name}
-                </Link>
-              </>
-            )}
-            <span>›</span>
-            <span className="text-gray-900 font-medium truncate">{product.name}</span>
+      <div className="hidden md:block bg-white">
+        <div className="max-w-[1280px] mx-auto px-16 md:px-24">
+          <div className="py-12 border-b border-gray-200">
+            <div className="flex items-center gap-8 text-[13px] text-gray-500">
+              <Link href="/" className="hover:text-brand-600">Home</Link>
+              <span>›</span>
+              <Link href="/products" className="hover:text-brand-600">Products</Link>
+              {product.category && (
+                <>
+                  <span>›</span>
+                  <Link href={`/products?category=${product.category.slug}`} className="hover:text-brand-600">
+                    {product.category.name}
+                  </Link>
+                </>
+              )}
+              <span>›</span>
+              <span className="text-gray-900 font-medium truncate">{product.name}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -188,7 +190,7 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
                     <button
                       key={img.id}
                       onClick={() => setSelectedImage(index)}
-                      className={`w-48 h-48 md:w-52 md:h-52 flex-shrink-0 rounded-lg overflow-hidden border-2 transition-all ${
+                      className={`w-48 h-48 md:w-64 md:h-64 flex-shrink-0 rounded-lg overflow-hidden border-2 transition-all ${
                         selectedImage === index
                           ? 'border-brand-600 ring-2 ring-brand-200'
                           : 'border-gray-200 hover:border-gray-300'
@@ -362,7 +364,7 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
             <button
               onClick={handleAddToCart}
               disabled={getSelectedStock() === 0 || addingToCart}
-              className="hidden md:flex w-full h-52 bg-brand-600 text-white rounded-lg font-semibold text-[16px] leading-none items-center justify-center hover:bg-brand-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed mb-24"
+              className="hidden md:flex w-full h-40 bg-brand-600 text-white rounded-lg font-medium text-[14px] leading-none items-center justify-center hover:bg-brand-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed mb-24"
             >
               {addingToCart ? 'Adding...' : getSelectedStock() === 0 ? 'Out of Stock' : 'Add to Cart'}
             </button>
