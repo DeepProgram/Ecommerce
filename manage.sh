@@ -40,6 +40,10 @@ case "$1" in
     echo "Initializing Elasticsearch index..."
     docker-compose exec backend python manage.py init_search
     ;;
+  seed-products)
+    echo "Seeding database with demo products..."
+    docker-compose exec backend python manage.py seed_products
+    ;;
   test)
     echo "Running tests..."
     docker-compose exec backend python manage.py test
@@ -55,7 +59,7 @@ case "$1" in
     docker-compose up -d
     ;;
   *)
-    echo "Usage: $0 {start|start-with-workers|stop|restart|logs|migrate|makemigrations|createsuperuser|shell|init-search|test|clean|rebuild}"
+    echo "Usage: $0 {start|start-with-workers|stop|restart|logs|migrate|makemigrations|createsuperuser|shell|init-search|seed-products|test|clean|rebuild}"
     echo ""
     echo "Commands:"
     echo "  start              - Start all services"
@@ -68,6 +72,7 @@ case "$1" in
     echo "  createsuperuser    - Create Django superuser"
     echo "  shell              - Open Django shell"
     echo "  init-search        - Initialize Elasticsearch index"
+    echo "  seed-products      - Add demo products to database"
     echo "  test               - Run tests"
     echo "  clean              - Remove all containers and volumes"
     echo "  rebuild            - Rebuild all containers from scratch"

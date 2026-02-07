@@ -23,7 +23,9 @@ interface ProductCardProps {
 
 export default function ProductCard({ product }: ProductCardProps) {
   const imageUrl = product.primary_image?.image 
-    ? `http://localhost${product.primary_image.image}`
+    ? (product.primary_image.image.startsWith('http') 
+        ? product.primary_image.image 
+        : `http://localhost${product.primary_image.image}`)
     : '/placeholder-product.svg';
 
   return (

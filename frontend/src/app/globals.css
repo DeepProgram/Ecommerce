@@ -40,4 +40,13 @@
   .product-card {
     @apply card p-12 hover:border-gray-300 transition-all duration-200;
   }
+  
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
 }

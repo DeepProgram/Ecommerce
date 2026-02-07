@@ -8,6 +8,11 @@ const nextConfig = {
         port: '80',
         pathname: '/media/**',
       },
+      {
+        protocol: 'http',
+        hostname: 'localhost',
+        pathname: '/media/**',
+      },
     ],
   },
   async rewrites() {
