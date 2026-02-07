@@ -31,7 +31,7 @@ export default function HomePage() {
             </p>
             <Link 
               href="/products" 
-              className="inline-block px-32 h-48 bg-white text-brand-600 hover:bg-gray-50 rounded-lg font-semibold text-[15px] leading-none flex items-center justify-center transition-colors shadow-lg"
+              className="inline-flex items-center justify-center px-32 h-48 bg-white text-brand-600 hover:bg-gray-50 rounded-lg font-semibold text-[15px] leading-none transition-colors shadow-lg"
             >
               Shop Now
             </Link>
@@ -41,7 +41,7 @@ export default function HomePage() {
 
       {/* Categories */}
       <section className="bg-white border-b border-gray-200">
-        <div className="max-w-[1280px] mx-auto px-16 md:px-24 py-32 md:py-40">
+        <div className="max-w-[1280px] mx-auto px-16 md:px-24 py-32 md:py-24 lg:py-28">
           <div className="grid grid-cols-4 gap-12 md:gap-20 lg:gap-24">
             <CategoryIcon href="/products?category=women" icon="👗" label="Women" />
             <CategoryIcon href="/products?category=men" icon="👔" label="Men" />
@@ -53,7 +53,7 @@ export default function HomePage() {
 
       {/* Trending Products */}
       <section className="bg-gray-50">
-        <div className="max-w-[1280px] mx-auto px-16 md:px-24 py-40 md:py-56">
+        <div className="max-w-[1280px] mx-auto px-16 md:px-24 py-40 md:py-32 lg:py-40">
           <div className="flex items-center justify-between mb-32">
             <h2 className="text-[24px] leading-[32px] md:text-[28px] md:leading-[36px] font-bold text-gray-900">
               Trending Now
@@ -79,7 +79,7 @@ export default function HomePage() {
               <p className="text-[16px] text-gray-500 mb-16">No products available yet</p>
               <Link 
                 href="/products" 
-                className="inline-block px-24 h-44 bg-brand-600 text-white rounded-lg font-semibold text-[14px] leading-none hover:bg-brand-700 transition-colors"
+                className="inline-flex items-center justify-center px-24 h-44 bg-brand-600 text-white rounded-lg font-semibold text-[14px] leading-none hover:bg-brand-700 transition-colors"
               >
                 Browse All Products
               </Link>
@@ -90,7 +90,7 @@ export default function HomePage() {
 
       {/* Special Offers */}
       <section className="bg-white">
-        <div className="max-w-[1280px] mx-auto px-16 md:px-24 py-40 md:py-56">
+        <div className="max-w-[1280px] mx-auto px-16 md:px-24 py-40 md:py-32 lg:py-40">
           <h2 className="text-[24px] leading-[32px] md:text-[28px] md:leading-[36px] font-bold text-gray-900 mb-32">
             Special Offers
           </h2>
@@ -118,12 +118,12 @@ function CategoryIcon({ href, icon, label }: { href: string; icon: string; label
   return (
     <Link 
       href={href}
-      className="flex flex-col items-center gap-8 p-12 bg-white rounded-xl border border-gray-200 hover:border-brand-600 hover:shadow-sm transition-all duration-200"
+      className="flex flex-col items-center gap-8 md:gap-12 p-12 md:p-20 bg-white rounded-xl border border-gray-200 hover:border-brand-600 hover:shadow-lg transition-all duration-200"
     >
-      <div className="w-40 h-40 rounded-full bg-brand-50 flex items-center justify-center text-[20px]">
+      <div className="w-40 h-40 md:w-56 md:h-56 lg:w-64 lg:h-64 rounded-full bg-brand-50 flex items-center justify-center text-[20px] md:text-[28px] lg:text-[32px]">
         {icon}
       </div>
-      <span className="text-[13px] font-medium text-gray-900 text-center">{label}</span>
+      <span className="text-[13px] md:text-[14px] lg:text-[15px] font-semibold text-gray-900 text-center">{label}</span>
     </Link>
   );
 }
@@ -137,10 +137,10 @@ function OfferCard({ title, subtitle, bgColor, link }: {
   return (
     <Link 
       href={link}
-      className={`${bgColor} rounded-xl p-24 text-white hover:opacity-90 transition-opacity duration-200 min-h-[140px] flex flex-col justify-center shadow-card`}
+      className={`${bgColor} rounded-xl p-32 md:p-40 text-white hover:opacity-90 transition-opacity duration-200 min-h-[160px] md:min-h-[200px] flex flex-col justify-center shadow-card`}
     >
-      <h3 className="text-[28px] leading-[34px] font-bold mb-4">{title}</h3>
-      <p className="text-[15px] opacity-90">{subtitle}</p>
+      <h3 className="text-[28px] leading-[34px] md:text-[36px] md:leading-[44px] font-bold mb-8">{title}</h3>
+      <p className="text-[15px] md:text-[16px] opacity-90">{subtitle}</p>
     </Link>
   );
 }
