@@ -30,6 +30,7 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
 
   useEffect(() => {
     loadProduct();
+    window.scrollTo(0, 0);
   }, [params.slug]);
 
   const loadProduct = async () => {
